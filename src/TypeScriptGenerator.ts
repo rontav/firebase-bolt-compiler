@@ -21,42 +21,155 @@ export default class TypeScriptGenerator {
     constructor(schemas: Schemas, paths: Path[]) {
         this.schemas = schemas;
         this.paths = paths;
-        _.forEach(
-            schemas,
-            (schema, name) => {
-                const type = schema.derivedFrom as ExpSimpleType;
-                if (type.name && this.derivesFromAtomic(type)) {
-                    this.atomicTypes[name] = this.serializeTypeName(type.name);
+
+        // console.log(JSON.stringify(paths, null ,4));
+
+        Object.entries(schemas).forEach(([name, schema]) => {
+            const type = schema.derivedFrom as ExpSimpleType;
+
+            if (type.name && this.derivesFromAtomic(type)) {
+                this.atomicTypes[name] = this.serializeTypeName(type.name);
+            }
+        })
+    }
+
+    pathsToInterface(root: Record<string, any>): string {
+        const childKeys = Object.keys(root).filter(key => !['type', 'path'].includes(key));
+
+        if (root.type && Object.keys(childKeys).length === 0) {
+            return this.serialize(root.type.isType);
+        }
+
+        let output = [];
+
+        let wildcardAndChildren: {
+            key?: string,
+            value?: string,
+        } = {};
+
+        if (
+            childKeys.length > 0
+            && (
+                childKeys.length > 1
+                || childKeys[0][0] !== '$'
+            )
+        ) {
+            output.push('{');
+        }
+
+        for (let key of childKeys) {
+            let childValue = this.pathsToInterface(root[key]);
+
+            if (key[0] === '$') {
+                let value = `Record<string, ${childValue}>`;
+
+                if (childKeys.length > 1) {
+                    wildcardAndChildren = {
+                        key,
+                        value
+                    };
+                }
+                else {
+                    output.push(value);
                 }
             }
-        );
+            else {
+                output.push(`${key}?: ${childValue}`)
+            }
+        }
+
+        if (wildcardAndChildren.key) {
+            output.push(`} & ${wildcardAndChildren.value}`);
+        }
+        else {
+            if (
+                childKeys.length > 0
+                && (
+                    childKeys.length > 1
+                    || childKeys[0][0] !== '$'
+                )
+            ) {
+                output.push('}');
+            }
+        }
+
+        if (root.type && this.serialize(root.type.isType) !== 'any') {
+            if (output.length) {
+                output[0] = `OmitIfDeclaredByParentAndAny<${output[0]}`
+                output[output.length - 1] += `, ${this.serialize(root.type.isType)}> & ${this.serialize(root.type.isType)}`;
+            }
+            else {
+                output = [`${this.serialize(root.type.isType)}`]
+            }
+        }
+        if (!output.length) {
+            output = ['any']
+        }
+
+        return output.join('\n');
     }
 
     generate(): string {
         // const paths = this.paths.map(path => this.serializePath(path)).join("\n\n") + "\n\n";
-        const types = _.map(this.schemas, (schema, name) => this.serializeSchema(name, schema))
-            .join("\n\n")
-            .trim();
-        // return paths + types;
-        return types;
-    }
+        const root: Record<string, any> = {
+            path: '/'
+        };
 
-    private serializePath(path: Path): string {
-        const methodName = _.camelCase(`get ${path.template.parts[0].label}`);
-        const params = path.template.parts
-            .map(part => part.variable ? `${part.variable}: string` : "")
-            .filter(part => part !== "")
-            .join(", ");
-        return `export function ${methodName}(${params}) {
-    return \`${path.template.parts.map(p => p.variable ? `\${${p.variable}}` : p.label).join("/")}\`;
-}`;
+        this.paths.forEach(path => {
+            let current = root;
+            let last = current;
+            let lastPathPart;
+
+            if (Array.isArray(path.template.parts)) {
+                for (let pathPart of path.template.parts) {
+                    if (!current[pathPart.label]) {
+                        current[pathPart.label] = {};
+                    }
+
+                    last = current;
+                    lastPathPart = pathPart.label;
+                    current = current[pathPart.label];
+                    current.path = last.path + pathPart.label + '/';
+                }
+            }
+
+            if (path.isType) {
+                last[lastPathPart].type = path
+            }
+        })
+
+        let pathTypes = `import {A, O} from 'ts-toolbelt';`
+        pathTypes += `
+
+type OmitIfDeclaredByParentAndAny<T, U> = O.Filter<{
+    [P in keyof T]:
+        P extends keyof U
+        ? A.Equals<T[P], any> extends 1
+        ? never
+        : T[P] extends Record<string, any>
+        ? OmitIfDeclaredByParentAndAny<T[P], U[P]>
+        : T[P]
+        : T[P]
+}, never, 'equals'>;
+
+`
+pathTypes+= 'export interface dbPaths ' + this.pathsToInterface(root);
+
+        // console.log('const paths = '+JSON.stringify(root, null, 4));
+
+        const types = (
+            Object.entries(this.schemas).map(([name, schema]) => this.serializeSchema(name, schema))
+                .join("\n\n")
+                .trim()
+        );
+
+        return types + '\n\n' + pathTypes;
     }
 
     private serializeTypeName(name: string): string {
         return this.atomicTypes[name] || name;
     }
 
-    /* tslint:disable:no-use-before-declare */
     private serialize(type: ExpType): string {
         if ((type as ExpGenericType).params) {
             return this.serializeGenericType(type as ExpGenericType);
@@ -66,7 +179,6 @@ export default class TypeScriptGenerator {
             return this.serializeSimpleType(type as ExpSimpleType);
         }
     }
-    /* tslint:enable:no-use-before-declare */
 
     private serializeSimpleType(type: ExpSimpleType): string {
         return this.serializeTypeName(type.name);
