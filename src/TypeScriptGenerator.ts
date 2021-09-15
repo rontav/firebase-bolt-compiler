@@ -15,7 +15,8 @@ export default class TypeScriptGenerator {
         Number: "number",
         Null: "void",
         Object: "Object",
-        String: "string"
+        String: "string",
+        Timestamp: "number | TServerTimestamp"
     };
 
     constructor(schemas: Schemas, paths: Path[]) {
@@ -27,7 +28,7 @@ export default class TypeScriptGenerator {
         Object.entries(schemas).forEach(([name, schema]) => {
             const type = schema.derivedFrom as ExpSimpleType;
 
-            if (type.name && this.derivesFromAtomic(type)) {
+            if (type.name && this.derivesFromAtomic(type) && !this.atomicTypes[name]) {
                 this.atomicTypes[name] = this.serializeTypeName(type.name);
             }
         })
@@ -152,6 +153,7 @@ type OmitIfDeclaredByParentAndAny<T, U> = O.Filter<{
         : T[P]
 }, never, 'equals'>;
 
+export type TServerTimestamp = {'.sv': 'timestamp'};
 `
 pathTypes+= 'export interface dbPaths ' + this.pathsToInterface(root);
 

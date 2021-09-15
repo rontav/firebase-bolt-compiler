@@ -9,14 +9,15 @@ class TypeScriptGenerator {
             Number: "number",
             Null: "void",
             Object: "Object",
-            String: "string"
+            String: "string",
+            Timestamp: "number | TServerTimestamp"
         };
         this.schemas = schemas;
         this.paths = paths;
         // console.log(JSON.stringify(paths, null ,4));
         Object.entries(schemas).forEach(([name, schema]) => {
             const type = schema.derivedFrom;
-            if (type.name && this.derivesFromAtomic(type)) {
+            if (type.name && this.derivesFromAtomic(type) && !this.atomicTypes[name]) {
                 this.atomicTypes[name] = this.serializeTypeName(type.name);
             }
         });
@@ -113,6 +114,7 @@ type OmitIfDeclaredByParentAndAny<T, U> = O.Filter<{
         : T[P]
 }, never, 'equals'>;
 
+export type TServerTimestamp = {'.sv': 'timestamp'};
 `;
         pathTypes += 'export interface dbPaths ' + this.pathsToInterface(root);
         // console.log('const paths = '+JSON.stringify(root, null, 4));
