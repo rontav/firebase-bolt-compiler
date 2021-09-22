@@ -42,6 +42,18 @@ declare module "firebase-bolt" {
         properties: TypeParams;
         // Generic parameters - if a Generic schema
         params?: string[];
+        methods?: {
+            [key: string]: {
+                params?: [],
+                body?: Exp & {
+                    ref?: unknown,
+                    args?: (Exp & {
+                        value?: string,
+                        modifiers?: string
+                    })[]
+                }
+            }
+        }
     }
 
     export function parse(source: string): { schema: Schemas, paths: Path[] };

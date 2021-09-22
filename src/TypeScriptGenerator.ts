@@ -9,6 +9,7 @@ export default class TypeScriptGenerator {
     private schemas: Schemas;
     private paths: Path[];
 
+    private regexTypes: { [type: string]:string } = {};
     private atomicTypes: { [type: string]: string } = {
         Any: "any",
         Boolean: "boolean",
@@ -23,13 +24,27 @@ export default class TypeScriptGenerator {
         this.schemas = schemas;
         this.paths = paths;
 
+        // console.log(JSON.stringify(schemas, null ,4));
         // console.log(JSON.stringify(paths, null ,4));
 
         Object.entries(schemas).forEach(([name, schema]) => {
             const type = schema.derivedFrom as ExpSimpleType;
 
             if (type.name && this.derivesFromAtomic(type) && !this.atomicTypes[name]) {
-                this.atomicTypes[name] = this.serializeTypeName(type.name);
+                if(type.name === 'String' && schema?.methods?.validate?.body?.args?.[0]?.type === 'RegExp'){
+                    const regexValue  = schema.methods.validate.body.args[0].value
+
+                    if(regexValue.match(/^((?:[a-zA-Z \\+-]+\|?)+)$/)){
+                        const regexParts = regexValue.split('|')
+
+                        this.regexTypes[name] = regexParts.map(part => `"${part}"`).join(' | ');
+                        this.atomicTypes[name] = name;
+                    }
+                }
+
+                if(!this.atomicTypes[name]){
+                    this.atomicTypes[name] = this.serializeTypeName(type.name);
+                }
             }
         })
     }
@@ -139,6 +154,11 @@ export default class TypeScriptGenerator {
             }
         })
 
+        const regexTypesDefinitions = [];
+        Object.entries(this.regexTypes).forEach(([name, typeDefinition]) => {
+            regexTypesDefinitions.push(`type ${name} = ${typeDefinition};`);
+        })
+
         let pathTypes = `import {A, O} from 'ts-toolbelt';`
         pathTypes += `
 
@@ -165,7 +185,7 @@ pathTypes+= 'export interface dbPaths ' + this.pathsToInterface(root);
                 .trim()
         );
 
-        return types + '\n\n' + pathTypes;
+        return regexTypesDefinitions.join('\n') + '\n\n' + types + '\n\n' + pathTypes;
     }
 
     private serializeTypeName(name: string): string {
@@ -193,9 +213,11 @@ pathTypes+= 'export interface dbPaths ' + this.pathsToInterface(root);
     }
 
     private serializeGenericType(type: ExpGenericType): string {
+        const keyType = this.serialize(type.params[0]);
+
         return type.name === "Map"
             ?
-            `{ [key: string]: ${this.serialize(type.params[1])} }`
+            `{ [${keyType === 'string' ? 'key: string': `key in ${keyType}`}]: ${this.serialize(type.params[1])} }`
             :
             this.serializeGenericTypeRef(type);
     }
