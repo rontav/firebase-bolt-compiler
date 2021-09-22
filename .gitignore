@@ -3,3 +3,6 @@
 npm-debug.*
 .idea/
 .DS_Store
+/rules.bolt
+/rules.ts
+/package-lock.json
