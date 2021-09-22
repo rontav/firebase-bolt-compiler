@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const _ = require("lodash");
 class TypeScriptGenerator {
     constructor(schemas, paths) {
+        this.regexTypes = {};
         this.atomicTypes = {
             Any: "any",
             Boolean: "boolean",
@@ -14,11 +15,23 @@ class TypeScriptGenerator {
         };
         this.schemas = schemas;
         this.paths = paths;
+        // console.log(JSON.stringify(schemas, null ,4));
         // console.log(JSON.stringify(paths, null ,4));
         Object.entries(schemas).forEach(([name, schema]) => {
+            var _a, _b, _c, _d, _e;
             const type = schema.derivedFrom;
             if (type.name && this.derivesFromAtomic(type) && !this.atomicTypes[name]) {
-                this.atomicTypes[name] = this.serializeTypeName(type.name);
+                if (type.name === 'String' && ((_e = (_d = (_c = (_b = (_a = schema === null || schema === void 0 ? void 0 : schema.methods) === null || _a === void 0 ? void 0 : _a.validate) === null || _b === void 0 ? void 0 : _b.body) === null || _c === void 0 ? void 0 : _c.args) === null || _d === void 0 ? void 0 : _d[0]) === null || _e === void 0 ? void 0 : _e.type) === 'RegExp') {
+                    const regexValue = schema.methods.validate.body.args[0].value;
+                    if (regexValue.match(/^((?:[a-zA-Z \\+-]+\|?)+)$/)) {
+                        const regexParts = regexValue.split('|');
+                        this.regexTypes[name] = regexParts.map(part => `"${part}"`).join(' | ');
+                        this.atomicTypes[name] = name;
+                    }
+                }
+                if (!this.atomicTypes[name]) {
+                    this.atomicTypes[name] = this.serializeTypeName(type.name);
+                }
             }
         });
     }
@@ -100,6 +113,10 @@ class TypeScriptGenerator {
                 last[lastPathPart].type = path;
             }
         });
+        const regexTypesDefinitions = [];
+        Object.entries(this.regexTypes).forEach(([name, typeDefinition]) => {
+            regexTypesDefinitions.push(`type ${name} = ${typeDefinition};`);
+        });
         let pathTypes = `import {A, O} from 'ts-toolbelt';`;
         pathTypes += `
 
@@ -121,7 +138,7 @@ export type TServerTimestamp = {'.sv': 'timestamp'};
         const types = (Object.entries(this.schemas).map(([name, schema]) => this.serializeSchema(name, schema))
             .join("\n\n")
             .trim());
-        return types + '\n\n' + pathTypes;
+        return regexTypesDefinitions.join('\n') + '\n\n' + types + '\n\n' + pathTypes;
     }
     serializeTypeName(name) {
         return this.atomicTypes[name] || name;
@@ -146,9 +163,10 @@ export type TServerTimestamp = {'.sv': 'timestamp'};
         return uniqueTypes.filter(t => t !== "void").join(" | ");
     }
     serializeGenericType(type) {
+        const keyType = this.serialize(type.params[0]);
         return type.name === "Map"
             ?
-                `{ [key: string]: ${this.serialize(type.params[1])} }`
+                `{ [${keyType === 'string' ? 'key: string' : `key in ${keyType}`}]: ${this.serialize(type.params[1])} }`
             :
                 this.serializeGenericTypeRef(type);
     }

@@ -2,6 +2,7 @@ import { Path, Schemas } from "firebase-bolt";
 export default class TypeScriptGenerator {
     private schemas;
     private paths;
+    private regexTypes;
     private atomicTypes;
     constructor(schemas: Schemas, paths: Path[]);
     pathsToInterface(root: Record<string, any>): string;
