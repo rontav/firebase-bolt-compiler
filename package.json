@@ -1,11 +1,11 @@
 {
-  "name": "firebase-bolt-compiler",
+  "name": "@rontav/firebase-bolt-compiler",
   "version": "2.0.2",
   "description": "Compiles Firebase Bolt files to TypeScript, Flow, & more",
   "main": "build/index.js",
   "typings": "build/index.d.ts",
-  "repository": "https://github.com/wcandillon/firebase-bolt-compiler",
-  "author": "William Candillon <wcandillon@gmail.com>",
+  "repository": "https://github.com/rontav/firebase-bolt-compiler",
+  "author": "Valentin Mocanu <mrvali97@gmail.com>",
   "license": "MIT",
   "devDependencies": {
     "@types/commander": "^2.9.2",
