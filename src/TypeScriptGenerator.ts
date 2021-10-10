@@ -183,7 +183,23 @@ export default class TypeScriptGenerator {
             `export type ${this.options.typePrefix}${name} = ${typeDefinition};`
         ));
 
-        const pathTypes = 'export interface dbPaths ' + this.pathsToInterface(root);
+        const pathDefinitions = ('export interface dbPaths ' + this.pathsToInterface(root)).split('\n');
+
+        // cheap auto-indent
+        let indent = 0;
+        for (const pathIndex in pathDefinitions) {
+            const path = pathDefinitions[pathIndex];
+
+            if (path[0] === '}') {
+                indent--;
+            }
+
+            pathDefinitions[pathIndex] = `${'    '.repeat(indent)}${path}`;
+
+            if (path[path.length - 1] === '{') {
+                indent++;
+            }
+        }
 
         // console.log('const paths = ' + JSON.stringify(root, null, 4));
 
@@ -195,7 +211,7 @@ export default class TypeScriptGenerator {
             helperFuntions(this.options),
             regexTypesDefinitions.join('\n'),
             types.join('\n\n'),
-            pathTypes,
+            pathDefinitions.join('\n'),
         ].map(sourcePart => sourcePart.trim()).join('\n\n\n');
     }
 
