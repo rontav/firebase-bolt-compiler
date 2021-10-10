@@ -1,5 +1,21 @@
 import {Path, Schemas, ExpType, ExpGenericType, ExpUnionType, ExpSimpleType, Schema} from 'firebase-bolt';
-import * as _ from 'lodash';
+
+const helperFuntions = `
+import {A, O} from 'ts-toolbelt';
+
+type OmitIfDeclaredByParentAndAny<T, U> = O.Filter<{
+    [P in keyof T]:
+        P extends keyof U
+        ? A.Equals<T[P], any> extends 1
+        ? never
+        : T[P] extends Record<string, any>
+        ? OmitIfDeclaredByParentAndAny<T[P], U[P]>
+        : T[P]
+        : T[P]
+}, never, 'equals'>;
+
+export type T_ServerTimestamp = {'.sv': 'timestamp'};
+`;
 
 export default class TypeScriptGenerator {
     private schemas: Schemas;
@@ -13,7 +29,7 @@ export default class TypeScriptGenerator {
         Null: 'void',
         Object: 'Object',
         String: 'string',
-        Timestamp: 'number | TServerTimestamp',
+        Timestamp: 'number | T_ServerTimestamp',
     };
 
     constructor(schemas: Schemas, paths: Path[]) {
@@ -34,7 +50,7 @@ export default class TypeScriptGenerator {
                         const regexParts = regexValue.split('|');
 
                         this.regexTypes[name] = regexParts.map(part => `"${part}"`).join(' | ');
-                        this.atomicTypes[name] = name;
+                        this.atomicTypes[name] = `T_${name}`;
                     }
                 }
 
@@ -150,42 +166,28 @@ export default class TypeScriptGenerator {
             }
         });
 
-        const regexTypesDefinitions = [];
-        Object.entries(this.regexTypes).forEach(([name, typeDefinition]) => {
-            regexTypesDefinitions.push(`type ${name} = ${typeDefinition};`);
-        });
+        const regexTypesDefinitions = Object.entries(this.regexTypes).map(([name, typeDefinition]) => (
+            `export type T_${name} = ${typeDefinition};`
+        ));
 
-        let pathTypes = 'import {A, O} from \'ts-toolbelt\';';
-        pathTypes += `
+        const pathTypes = 'export interface dbPaths ' + this.pathsToInterface(root);
 
-type OmitIfDeclaredByParentAndAny<T, U> = O.Filter<{
-    [P in keyof T]:
-        P extends keyof U
-        ? A.Equals<T[P], any> extends 1
-        ? never
-        : T[P] extends Record<string, any>
-        ? OmitIfDeclaredByParentAndAny<T[P], U[P]>
-        : T[P]
-        : T[P]
-}, never, 'equals'>;
+        // console.log('const paths = ' + JSON.stringify(root, null, 4));
 
-export type TServerTimestamp = {'.sv': 'timestamp'};
-`;
-        pathTypes += 'export interface dbPaths ' + this.pathsToInterface(root);
+        const types = Object.entries(this.schemas).map(([name, schema]) => (
+            this.serializeSchema(name, schema)
+        ));
 
-        // console.log('const paths = '+JSON.stringify(root, null, 4));
-
-        const types = (
-            Object.entries(this.schemas).map(([name, schema]) => this.serializeSchema(name, schema))
-                .join('\n\n')
-                .trim()
-        );
-
-        return regexTypesDefinitions.join('\n') + '\n\n' + types + '\n\n' + pathTypes;
+        return [
+            helperFuntions,
+            regexTypesDefinitions.join('\n'),
+            types.join('\n\n'),
+            pathTypes,
+        ].map(sourcePart => sourcePart.trim()).join('\n\n\n');
     }
 
     private serializeTypeName(name: string): string {
-        return this.atomicTypes[name] || name;
+        return this.atomicTypes[name] || `T_${name}`;
     }
 
     private serialize(type: ExpType): string {
@@ -213,8 +215,7 @@ export type TServerTimestamp = {'.sv': 'timestamp'};
     private serializeGenericType(type: ExpGenericType): string {
         const keyType = this.serialize(type.params[0]);
 
-        return type.name === 'Map'
-            ?
+        return type.name === 'Map' ?
             `{ [${keyType === 'string' ? 'key: string' : `key in ${keyType}`}]: ${this.serialize(type.params[1])} }`
             :
             this.serializeGenericTypeRef(type);
@@ -258,8 +259,9 @@ export type TServerTimestamp = {'.sv': 'timestamp'};
 
     private isNullable(type: ExpType): string {
         const union = type as ExpUnionType;
+
         if (union.types) {
-            const isNullable = _.some(union.types, (t: ExpSimpleType) => t.name === 'Null');
+            const isNullable = union.types.some((t: ExpSimpleType) => t.name === 'Null');
             return isNullable ? '?' : '';
         }
         return '';
@@ -267,15 +269,14 @@ export type TServerTimestamp = {'.sv': 'timestamp'};
 
     private serializeSchema(name: string, schema: Schema): string {
         if (this.derivesFromMap(schema.derivedFrom as ExpGenericType)) {
-            return `export type ${name} = ${this.serializeGenericType(schema.derivedFrom as ExpGenericType)};`;
+            return `export type T_${name} = ${this.serializeGenericType(schema.derivedFrom as ExpGenericType)};`;
         }
         else if (!this.derivesFromAtomic(schema.derivedFrom as ExpSimpleType)) {
-            return `export interface ${name} ${this.derives(schema)}{
+            return `export interface T_${name} ${this.derives(schema)}{
 ${
-    _.map(
-        schema.properties,
-        (prop, propName) => `    ${propName}${this.isNullable(prop)}: ${this.serialize(prop)};`,
-    ).join('\n')
+    Object.entries(schema.properties).map(([propName, prop]) => (
+        `    ${propName}${this.isNullable(prop)}: ${this.serialize(prop)};`
+    )).join('\n')
 }
 }`;
         }
