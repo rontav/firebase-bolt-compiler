@@ -1,6 +1,6 @@
 {
   "name": "@rontav/firebase-bolt-compiler",
-  "version": "2.0.2",
+  "version": "3.0.0",
   "description": "Compiles Firebase Bolt files to TypeScript, Flow, & more",
   "main": "build/index.js",
   "typings": "build/index.d.ts",
