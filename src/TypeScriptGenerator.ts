@@ -1,6 +1,6 @@
 import {Path, Schemas, ExpType, ExpGenericType, ExpUnionType, ExpSimpleType, Schema} from 'firebase-bolt';
 
-const helperFuntions = `
+const helperFuntions = (options: GeneratorOptions) => `
 import {A, O} from 'ts-toolbelt';
 
 type OmitIfDeclaredByParentAndAny<T, U> = O.Filter<{
@@ -14,12 +14,17 @@ type OmitIfDeclaredByParentAndAny<T, U> = O.Filter<{
         : T[P]
 }, never, 'equals'>;
 
-export type T_ServerTimestamp = {'.sv': 'timestamp'};
+export type ${options.typePrefix}ServerTimestamp = {'.sv': 'timestamp'};
 `;
+
+export interface GeneratorOptions {
+    typePrefix: string,
+}
 
 export default class TypeScriptGenerator {
     private schemas: Schemas;
     private paths: Path[];
+    private options: GeneratorOptions;
 
     private regexTypes: {[type: string]: string} = {};
     private atomicTypes: {[type: string]: string} = {
@@ -29,15 +34,23 @@ export default class TypeScriptGenerator {
         Null: 'void',
         Object: 'Object',
         String: 'string',
-        Timestamp: 'number | T_ServerTimestamp',
     };
 
-    constructor(schemas: Schemas, paths: Path[]) {
+    constructor(
+        schemas: Schemas,
+        paths: Path[],
+        options: GeneratorOptions = {
+            typePrefix: 'T_',
+        },
+    ) {
         this.schemas = schemas;
         this.paths = paths;
+        this.options = options;
 
         // console.log(JSON.stringify(schemas, null ,4));
         // console.log(JSON.stringify(paths, null ,4));
+
+        this.atomicTypes.Timestamp = `number | ${this.options.typePrefix}ServerTimestamp`;
 
         Object.entries(schemas).forEach(([name, schema]) => {
             const type = schema.derivedFrom as ExpSimpleType;
@@ -50,7 +63,7 @@ export default class TypeScriptGenerator {
                         const regexParts = regexValue.split('|');
 
                         this.regexTypes[name] = regexParts.map(part => `"${part}"`).join(' | ');
-                        this.atomicTypes[name] = `T_${name}`;
+                        this.atomicTypes[name] = `${this.options.typePrefix}${name}`;
                     }
                 }
 
@@ -167,7 +180,7 @@ export default class TypeScriptGenerator {
         });
 
         const regexTypesDefinitions = Object.entries(this.regexTypes).map(([name, typeDefinition]) => (
-            `export type T_${name} = ${typeDefinition};`
+            `export type ${this.options.typePrefix}${name} = ${typeDefinition};`
         ));
 
         const pathTypes = 'export interface dbPaths ' + this.pathsToInterface(root);
@@ -179,7 +192,7 @@ export default class TypeScriptGenerator {
         ));
 
         return [
-            helperFuntions,
+            helperFuntions(this.options),
             regexTypesDefinitions.join('\n'),
             types.join('\n\n'),
             pathTypes,
@@ -187,7 +200,7 @@ export default class TypeScriptGenerator {
     }
 
     private serializeTypeName(name: string): string {
-        return this.atomicTypes[name] || `T_${name}`;
+        return this.atomicTypes[name] || `${this.options.typePrefix}${name}`;
     }
 
     private serialize(type: ExpType): string {
@@ -269,10 +282,10 @@ export default class TypeScriptGenerator {
 
     private serializeSchema(name: string, schema: Schema): string {
         if (this.derivesFromMap(schema.derivedFrom as ExpGenericType)) {
-            return `export type T_${name} = ${this.serializeGenericType(schema.derivedFrom as ExpGenericType)};`;
+            return `export type ${this.options.typePrefix}${name} = ${this.serializeGenericType(schema.derivedFrom as ExpGenericType)};`;
         }
         else if (!this.derivesFromAtomic(schema.derivedFrom as ExpSimpleType)) {
-            return `export interface T_${name} ${this.derives(schema)}{
+            return `export interface ${this.options.typePrefix}${name} ${this.derives(schema)}{
 ${
     Object.entries(schema.properties).map(([propName, prop]) => (
         `    ${propName}${this.isNullable(prop)}: ${this.serialize(prop)};`

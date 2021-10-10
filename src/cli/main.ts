@@ -7,8 +7,8 @@ import TypeScriptGenerator from '../TypeScriptGenerator';
 
 program
     .version(pkg.version)
-    .parse(process.argv)
-;
+    .option('-t, --type-prefix [prefix]', 'prefix added to types; default: T_')
+    .parse(process.argv);
 
 getStdin()
     .then(source => {
@@ -17,7 +17,9 @@ getStdin()
         }
 
         const {schema, paths} = bolt.parse(source);
-        const generator = new TypeScriptGenerator(schema, paths);
+        const generator = new TypeScriptGenerator(schema, paths, {
+            typePrefix: program.typePrefix || 'T_',
+        });
         process.stdout.write(generator.generate());
     })
     .catch(error => process.stderr.write(error + '\n'));
