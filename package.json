@@ -36,19 +36,14 @@
     "start": "npm run dev",
     "lint": "eslint --ext .ts src",
     "build": "tsc --pretty",
-    "dev": "nodemon -e ts,bolt --watch ./src --watch ./rules.bolt -x 'ts-node --files ./src/cli/main.ts < rules.bolt > rules.ts'",
-    "release": "semantic-release pre && npm publish && semantic-release post"
+    "dev": "nodemon -e ts,bolt --watch ./src --watch ./rules.bolt -x 'ts-node --files ./src/cli/main.ts < rules.bolt > rules.ts'"
   },
   "dependencies": {
     "commander": "^2.11.0",
     "condition-circle": "^1.5.0",
     "firebase-bolt": "^0.8.2",
     "get-stdin": "^5.0.1",
-    "semantic-release": "^8.0.3",
     "ts-toolbelt": "^9.6.0",
     "update-notifier": "^2.2.0"
-  },
-  "release": {
-    "verifyConditions": "condition-circle"
   }
 }
