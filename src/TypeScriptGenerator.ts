@@ -1,23 +1,19 @@
-import * as _ from "lodash";
-
-import { Path, Schemas, ExpType, ExpGenericType, ExpUnionType, ExpSimpleType, Schema } from "firebase-bolt";
-
-type NamedType = ExpSimpleType | ExpGenericType;
+import {Path, Schemas, ExpType, ExpGenericType, ExpUnionType, ExpSimpleType, Schema} from 'firebase-bolt';
+import * as _ from 'lodash';
 
 export default class TypeScriptGenerator {
-
     private schemas: Schemas;
     private paths: Path[];
 
-    private regexTypes: { [type: string]:string } = {};
-    private atomicTypes: { [type: string]: string } = {
-        Any: "any",
-        Boolean: "boolean",
-        Number: "number",
-        Null: "void",
-        Object: "Object",
-        String: "string",
-        Timestamp: "number | TServerTimestamp"
+    private regexTypes: {[type: string]: string} = {};
+    private atomicTypes: {[type: string]: string} = {
+        Any: 'any',
+        Boolean: 'boolean',
+        Number: 'number',
+        Null: 'void',
+        Object: 'Object',
+        String: 'string',
+        Timestamp: 'number | TServerTimestamp',
     };
 
     constructor(schemas: Schemas, paths: Path[]) {
@@ -31,22 +27,22 @@ export default class TypeScriptGenerator {
             const type = schema.derivedFrom as ExpSimpleType;
 
             if (type.name && this.derivesFromAtomic(type) && !this.atomicTypes[name]) {
-                if(type.name === 'String' && schema?.methods?.validate?.body?.args?.[0]?.type === 'RegExp'){
-                    const regexValue  = schema.methods.validate.body.args[0].value
+                if (type.name === 'String' && schema?.methods?.validate?.body?.args?.[0]?.type === 'RegExp') {
+                    const regexValue = schema.methods.validate.body.args[0].value;
 
-                    if(regexValue.match(/^((?:[a-zA-Z \\+-]+\|?)+)$/)){
-                        const regexParts = regexValue.split('|')
+                    if (regexValue.match(/^((?:[a-zA-Z \\+-]+\|?)+)$/)) {
+                        const regexParts = regexValue.split('|');
 
                         this.regexTypes[name] = regexParts.map(part => `"${part}"`).join(' | ');
                         this.atomicTypes[name] = name;
                     }
                 }
 
-                if(!this.atomicTypes[name]){
+                if (!this.atomicTypes[name]) {
                     this.atomicTypes[name] = this.serializeTypeName(type.name);
                 }
             }
-        })
+        });
     }
 
     pathsToInterface(root: Record<string, any>): string {
@@ -73,16 +69,16 @@ export default class TypeScriptGenerator {
             output.push('{');
         }
 
-        for (let key of childKeys) {
-            let childValue = this.pathsToInterface(root[key]);
+        for (const key of childKeys) {
+            const childValue = this.pathsToInterface(root[key]);
 
             if (key[0] === '$') {
-                let value = `Record<string, ${childValue}>`;
+                const value = `Record<string, ${childValue}>`;
 
                 if (childKeys.length > 1) {
                     wildcardAndChildren = {
                         key,
-                        value
+                        value,
                     };
                 }
                 else {
@@ -90,7 +86,7 @@ export default class TypeScriptGenerator {
                 }
             }
             else {
-                output.push(`${key}?: ${childValue}`)
+                output.push(`${key}?: ${childValue}`);
             }
         }
 
@@ -111,15 +107,15 @@ export default class TypeScriptGenerator {
 
         if (root.type && this.serialize(root.type.isType) !== 'any') {
             if (output.length) {
-                output[0] = `OmitIfDeclaredByParentAndAny<${output[0]}`
+                output[0] = `OmitIfDeclaredByParentAndAny<${output[0]}`;
                 output[output.length - 1] += `, ${this.serialize(root.type.isType)}> & ${this.serialize(root.type.isType)}`;
             }
             else {
-                output = [`${this.serialize(root.type.isType)}`]
+                output = [`${this.serialize(root.type.isType)}`];
             }
         }
         if (!output.length) {
-            output = ['any']
+            output = ['any'];
         }
 
         return output.join('\n');
@@ -128,7 +124,7 @@ export default class TypeScriptGenerator {
     generate(): string {
         // const paths = this.paths.map(path => this.serializePath(path)).join("\n\n") + "\n\n";
         const root: Record<string, any> = {
-            path: '/'
+            path: '/',
         };
 
         this.paths.forEach(path => {
@@ -137,7 +133,7 @@ export default class TypeScriptGenerator {
             let lastPathPart;
 
             if (Array.isArray(path.template.parts)) {
-                for (let pathPart of path.template.parts) {
+                for (const pathPart of path.template.parts) {
                     if (!current[pathPart.label]) {
                         current[pathPart.label] = {};
                     }
@@ -150,16 +146,16 @@ export default class TypeScriptGenerator {
             }
 
             if (path.isType) {
-                last[lastPathPart].type = path
+                last[lastPathPart].type = path;
             }
-        })
+        });
 
         const regexTypesDefinitions = [];
         Object.entries(this.regexTypes).forEach(([name, typeDefinition]) => {
             regexTypesDefinitions.push(`type ${name} = ${typeDefinition};`);
-        })
+        });
 
-        let pathTypes = `import {A, O} from 'ts-toolbelt';`
+        let pathTypes = 'import {A, O} from \'ts-toolbelt\';';
         pathTypes += `
 
 type OmitIfDeclaredByParentAndAny<T, U> = O.Filter<{
@@ -174,14 +170,14 @@ type OmitIfDeclaredByParentAndAny<T, U> = O.Filter<{
 }, never, 'equals'>;
 
 export type TServerTimestamp = {'.sv': 'timestamp'};
-`
-pathTypes+= 'export interface dbPaths ' + this.pathsToInterface(root);
+`;
+        pathTypes += 'export interface dbPaths ' + this.pathsToInterface(root);
 
         // console.log('const paths = '+JSON.stringify(root, null, 4));
 
         const types = (
             Object.entries(this.schemas).map(([name, schema]) => this.serializeSchema(name, schema))
-                .join("\n\n")
+                .join('\n\n')
                 .trim()
         );
 
@@ -195,9 +191,11 @@ pathTypes+= 'export interface dbPaths ' + this.pathsToInterface(root);
     private serialize(type: ExpType): string {
         if ((type as ExpGenericType).params) {
             return this.serializeGenericType(type as ExpGenericType);
-        } else if ((type as ExpUnionType).types) {
+        }
+        else if ((type as ExpUnionType).types) {
             return this.serializeUnionType(type as ExpUnionType);
-        } else {
+        }
+        else {
             return this.serializeSimpleType(type as ExpSimpleType);
         }
     }
@@ -209,75 +207,80 @@ pathTypes+= 'export interface dbPaths ' + this.pathsToInterface(root);
     private serializeUnionType(type: ExpUnionType): string {
         const types = type.types.map(t => this.serialize(t));
         const uniqueTypes = [...new Set(types)];
-        return uniqueTypes.filter(t => t !== "void").join(" | ");
+        return uniqueTypes.filter(t => t !== 'void').join(' | ');
     }
 
     private serializeGenericType(type: ExpGenericType): string {
         const keyType = this.serialize(type.params[0]);
 
-        return type.name === "Map"
+        return type.name === 'Map'
             ?
-            `{ [${keyType === 'string' ? 'key: string': `key in ${keyType}`}]: ${this.serialize(type.params[1])} }`
+            `{ [${keyType === 'string' ? 'key: string' : `key in ${keyType}`}]: ${this.serialize(type.params[1])} }`
             :
             this.serializeGenericTypeRef(type);
     }
 
     private serializeGenericTypeRef(type: ExpGenericType): string {
         const typeName = this.serializeTypeName(type.name);
-        const params = type.params.map(param => this.serialize(param)).join(", ");
+        const params = type.params.map(param => this.serialize(param)).join(', ');
         return `${typeName}<${params}>`;
     }
 
     private serializeRef(type: ExpType): string {
         if ((type as ExpGenericType).params) {
             return this.serializeGenericTypeRef(type as ExpGenericType);
-        } else if ((type as ExpUnionType).types) {
+        }
+        else if ((type as ExpUnionType).types) {
             throw new Error();
-        } else {
+        }
+        else {
             return (type as ExpSimpleType).name;
         }
     }
 
     private derivesFromMap(type: ExpGenericType): boolean {
-        return type.name === "Map";
+        return type.name === 'Map';
     }
 
     private derivesFromAtomic(type: ExpSimpleType): boolean {
-        return this.atomicTypes[type.name] !== undefined && type.name !== "Object";
+        return this.atomicTypes[type.name] !== undefined && type.name !== 'Object';
     }
 
-    private derives(schema: Schema): string  {
+    private derives(schema: Schema): string {
         const type = this.serializeRef(schema.derivedFrom);
-        if (type !== "Object") {
+        if (type !== 'Object') {
             return `extends ${type} `;
-        } else {
-            return ``;
+        }
+        else {
+            return '';
         }
     }
 
     private isNullable(type: ExpType): string {
         const union = type as ExpUnionType;
         if (union.types) {
-            const isNullable = _.some(union.types, (t: ExpSimpleType) => t.name === "Null");
-            return isNullable ? "?" : "";
+            const isNullable = _.some(union.types, (t: ExpSimpleType) => t.name === 'Null');
+            return isNullable ? '?' : '';
         }
-        return "";
+        return '';
     }
 
     private serializeSchema(name: string, schema: Schema): string {
         if (this.derivesFromMap(schema.derivedFrom as ExpGenericType)) {
             return `export type ${name} = ${this.serializeGenericType(schema.derivedFrom as ExpGenericType)};`;
-        } else if (!this.derivesFromAtomic(schema.derivedFrom as ExpSimpleType)) {
+        }
+        else if (!this.derivesFromAtomic(schema.derivedFrom as ExpSimpleType)) {
             return `export interface ${name} ${this.derives(schema)}{
 ${
-                _.map(
-                    schema.properties,
-                    (prop, propName) => `    ${propName}${this.isNullable(prop)}: ${this.serialize(prop)};`
-                ).join("\n")
+    _.map(
+        schema.properties,
+        (prop, propName) => `    ${propName}${this.isNullable(prop)}: ${this.serialize(prop)};`,
+    ).join('\n')
 }
 }`;
-        } else {
-            return "";
+        }
+        else {
+            return '';
         }
     }
 }

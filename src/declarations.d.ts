@@ -1,47 +1,51 @@
-declare module "firebase-bolt" {
+declare module 'firebase-bolt' {
     export interface PathPart {
-        label: string;
-        variable: string;
+        label: string,
+        variable: string,
     }
 
-    export type PathTemplate = { parts: PathPart[] };
+    export interface PathTemplate {
+        parts: PathPart[],
+    }
 
     export interface Path {
-        template: PathTemplate;
-        isType: ExpType;
+        template: PathTemplate,
+        isType: ExpType,
     }
 
-    export type Schemas = { [name: string]: Schema };
+    export interface Schemas {
+        [name: string]: Schema,
+    }
 
     export interface Exp {
-        type: string;
-        valueType: string;
+        type: string,
+        valueType: string,
     }
 
     export type ExpType = ExpSimpleType | ExpUnionType | ExpGenericType;
 
     export interface ExpGenericType extends Exp {
-        name: string;
-        params: ExpType[];
+        name: string,
+        params: ExpType[],
     }
 
     export interface ExpUnionType extends Exp {
-        types: ExpType[];
+        types: ExpType[],
     }
 
     export interface ExpSimpleType extends Exp {
-        name: string;
+        name: string,
     }
 
     export interface TypeParams {
-        [name: string]: ExpType;
+        [name: string]: ExpType,
     }
 
     export interface Schema {
-        derivedFrom: ExpType;
-        properties: TypeParams;
+        derivedFrom: ExpType,
+        properties: TypeParams,
         // Generic parameters - if a Generic schema
-        params?: string[];
+        params?: string[],
         methods?: {
             [key: string]: {
                 params?: [],
@@ -49,12 +53,12 @@ declare module "firebase-bolt" {
                     ref?: unknown,
                     args?: (Exp & {
                         value?: string,
-                        modifiers?: string
-                    })[]
-                }
-            }
-        }
+                        modifiers?: string,
+                    })[],
+                },
+            },
+        },
     }
 
-    export function parse(source: string): { schema: Schemas, paths: Path[] };
+    export function parse(source: string): {schema: Schemas; paths: Path[]};
 }
