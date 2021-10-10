@@ -156,12 +156,20 @@ export default class TypeScriptGenerator {
             path: '/',
         };
 
+        const staticPaths: Set<string> = new Set();
+
         this.paths.forEach(path => {
             let current = root;
             let last = current;
             let lastPathPart;
 
             if (Array.isArray(path.template.parts)) {
+                let staticPath = path.template.parts.map(part => part.label).join('/');
+                staticPath = staticPath.substr(0, staticPath.indexOf('$'));
+                if (staticPath) {
+                    staticPaths.add(staticPath);
+                }
+
                 for (const pathPart of path.template.parts) {
                     if (!current[pathPart.label]) {
                         current[pathPart.label] = {};
@@ -178,6 +186,12 @@ export default class TypeScriptGenerator {
                 last[lastPathPart].type = path;
             }
         });
+
+        const pathConstants = [...staticPaths].map(path => (
+            path.split('/').filter(Boolean)
+        )).map(path => (
+            `export const P_${path.join('_')} = [${path.map(pathPart => `'${pathPart}'`).join(', ')}]`
+        ));
 
         const regexTypesDefinitions = Object.entries(this.regexTypes).map(([name, typeDefinition]) => (
             `export type ${this.options.typePrefix}${name} = ${typeDefinition};`
@@ -209,6 +223,7 @@ export default class TypeScriptGenerator {
 
         return [
             helperFuntions(this.options),
+            pathConstants.join('\n'),
             regexTypesDefinitions.join('\n'),
             types.join('\n\n'),
             pathDefinitions.join('\n'),
