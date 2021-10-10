@@ -2,8 +2,9 @@ import * as program from 'commander';
 import * as bolt from 'firebase-bolt';
 import * as getStdin from 'get-stdin';
 
-import * as pkg from '../../package.json';
 import TypeScriptGenerator from '../TypeScriptGenerator';
+
+const pkg = require('../../package.json');
 
 program
     .version(pkg.version)

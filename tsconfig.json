@@ -6,8 +6,7 @@
     "sourceMap": true,
     "outDir": "build",
     "skipLibCheck": true,
-    "moduleResolution": "node",
-    "resolveJsonModule": true
+    "moduleResolution": "node"
   },
   "include": [
       "src/**/*"

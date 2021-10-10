@@ -40,6 +40,7 @@ module.exports = {
                 },
             },
         ],
+        '@typescript-eslint/no-var-requires': 'off',
 
         'brace-style': 'off',
         '@typescript-eslint/brace-style': ['error', 'stroustrup'],
