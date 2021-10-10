@@ -35,7 +35,7 @@
   "scripts": {
     "start": "npm run dev",
     "lint": "eslint --ext .ts src",
-    "build": "tsc --pretty",
+    "build": "rm -rf build; tsc --pretty",
     "dev": "nodemon -e ts,bolt --watch ./src --watch ./rules.bolt -x 'ts-node --files ./src/cli/main.ts < rules.bolt > rules.ts'"
   },
   "dependencies": {
