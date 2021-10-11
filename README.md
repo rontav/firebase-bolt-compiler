@@ -48,10 +48,16 @@ type User {
 Will generate the TypeScript code below:
 
 ```
-type Users = { [key: string]: User };
+export const P_users = ['users'] as const;
 
-export interface User {
+export type T_Users = { [key: string]: T_User };
+
+export interface T_User {
     firstName: string;
     lastName: string;
+}
+
+export interface dbPaths {
+    users?: Record<string, T_Users>
 }
 ```
