@@ -190,7 +190,7 @@ export default class TypeScriptGenerator {
         const pathConstants = [...staticPaths].map(path => (
             path.split('/').filter(Boolean)
         )).map(path => (
-            `export const P_${path.join('_')} = [${path.map(pathPart => `'${pathPart}'`).join(', ')}]`
+            `export const P_${path.join('_')} = [${path.map(pathPart => `'${pathPart}'`).join(', ')}] as const;`
         ));
 
         const regexTypesDefinitions = Object.entries(this.regexTypes).map(([name, typeDefinition]) => (
