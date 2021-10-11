@@ -165,7 +165,12 @@ export default class TypeScriptGenerator {
 
             if (Array.isArray(path.template.parts)) {
                 let staticPath = path.template.parts.map(part => part.label).join('/');
-                staticPath = staticPath.substr(0, staticPath.indexOf('$'));
+                if (staticPath.includes('$')) {
+                    staticPath = staticPath.substr(0, staticPath.indexOf('$'));
+                }
+                if (staticPath[staticPath.length - 1] !== '/') {
+                    staticPath += '/';
+                }
                 if (staticPath) {
                     staticPaths.add(staticPath);
                 }
@@ -191,7 +196,7 @@ export default class TypeScriptGenerator {
             path.split('/').filter(Boolean)
         )).map(path => (
             `export const P_${path.join('_')} = [${path.map(pathPart => `'${pathPart}'`).join(', ')}] as const;`
-        ));
+        )).sort();
 
         const regexTypesDefinitions = Object.entries(this.regexTypes).map(([name, typeDefinition]) => (
             `export type ${this.options.typePrefix}${name} = ${typeDefinition};`
