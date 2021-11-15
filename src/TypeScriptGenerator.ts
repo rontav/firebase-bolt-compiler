@@ -284,7 +284,7 @@ export default class TypeScriptGenerator {
             throw new Error();
         }
         else {
-            return (type as ExpSimpleType).name;
+            return this.serializeSimpleType(type as ExpSimpleType);
         }
     }
 
